@@ -6,7 +6,7 @@ import { UserButton } from "@clerk/nextjs";
 const links = [
   {
     label: "Contact",
-    href: "/",
+    href: "/Contact",
   },
   {
     label: "Course",
