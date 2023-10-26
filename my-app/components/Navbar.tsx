@@ -14,7 +14,7 @@ const links = [
   },
   {
     label: "Info",
-    href: "/",
+    href: "/info",
   },
 ];
 const Navbar = () => {
