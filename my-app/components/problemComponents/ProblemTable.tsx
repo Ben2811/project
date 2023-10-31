@@ -1,40 +1,57 @@
 "use client";
 import Link from "next/link";
-// import { problems } from "./problems";
 import { CheckCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+} from "firebase/firestore";
+import { DBProblem } from "@/lib/problems/types";
+import { useUser } from "@clerk/nextjs";
 import { firestore } from "@/app/firebase/firebase";
 
 type ProblemsTableProps = {
   setLoadingProblems: React.Dispatch<React.SetStateAction<boolean>>;
+  searchQuery: string
 };
 const ProblemsTable: React.FC<ProblemsTableProps> = ({
   setLoadingProblems,
+  searchQuery,
 }) => {
   const problems = useGetProblems(setLoadingProblems);
+  const solvedProblems = useGetSolvedProblems();
+  const filteredProblems = problems.filter((problem) =>
+    problem.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
   return (
     <tbody className="w-full">
-      {problems.map((problem, idx) => {
+      {filteredProblems.map((problem, idx) => {
         const difficultyColor =
           problem.difficulty === "Easy"
             ? "text-green-500"
-            : "Medium"
+            : problem.difficulty === "Medium"
             ? "text-yellow-500"
-            : "Hard"
+            : problem.difficulty === "Hard"
             ? "text-pink-500"
             : "";
+
         return (
           <tr
-            className={`${idx % 2 == 1 ? "" : "bg-gray-800 text-white"}`}
+            className={`${idx % 2 === 1 ? "" : "bg-gray-800 text-white"}`}
             key={problem.id}
           >
             <th className="px-2 py-4 font-medium whitespace-nowrap text-green-500">
-              <CheckCircle fontSize={18} width={18} />
+              {solvedProblems.includes(problem.id) && (
+                <CheckCircle fontSize={18} width={18} />
+              )}
             </th>
             <td
               className={`px-6 py-4 ${
-                idx % 2 == 1 ? "hover:text-gray-400" : "hover:text-gray-600"
+                idx % 2 === 1 ? "hover:text-gray-400" : "hover:text-gray-600"
               }`}
             >
               {problem.link ? (
@@ -62,7 +79,7 @@ export default ProblemsTable;
 function useGetProblems(
   setLoadingProblems: React.Dispatch<React.SetStateAction<boolean>>
 ) {
-  const [problems, setProblems] = useState([]);
+  const [problems, setProblems] = useState<DBProblem[]>([]);
 
   useEffect(() => {
     const getProblems = async () => {
@@ -73,9 +90,9 @@ function useGetProblems(
         orderBy("order", "asc")
       );
       const querySnapshot = await getDocs(q);
-      const tmp = [];
+      const tmp: DBProblem[] = [];
       querySnapshot.forEach((doc) => {
-        tmp.push({ id: doc.id, ...doc.data() });
+        tmp.push({ id: doc.id, ...doc.data() } as DBProblem);
       });
       setProblems(tmp);
       setLoadingProblems(false);
@@ -84,4 +101,20 @@ function useGetProblems(
     getProblems();
   }, [setLoadingProblems]);
   return problems;
+}
+function useGetSolvedProblems() {
+  const { user } = useUser();
+  const [solvedProblems, setSolvedProblems] = useState<string[]>([]);
+  useEffect(() => {
+    const getSolvedProblems = async () => {
+      const userRef = doc(firestore, "users", user!.id);
+      const userDoc = await getDoc(userRef);
+      if (userDoc.exists()) {
+        setSolvedProblems(userDoc.data().solvedProblems);
+      }
+    };
+    if (user) getSolvedProblems();
+    if (!user) setSolvedProblems([]);
+  }, [user]);
+  return solvedProblems;
 }
